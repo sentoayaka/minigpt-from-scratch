@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="420" viewBox="0 0 760 420">
+  <rect width="100%" height="100%" fill="white"/>
+  <text x="56" y="32" font-family="Arial" font-size="22" font-weight="700">Training Curve</text>
+  <line x1="56" y1="364" x2="704" y2="364" stroke="#111827"/>
+  <line x1="56" y1="56" x2="56" y2="364" stroke="#111827"/>
+  <text x="380" y="406" font-family="Arial" font-size="14" text-anchor="middle">step</text>
+  <text x="16" y="210" font-family="Arial" font-size="14" transform="rotate(-90 16 210)" text-anchor="middle">loss</text>
+  <text x="56" y="386" font-family="Arial" font-size="12">0</text>
+  <text x="704" y="386" font-family="Arial" font-size="12" text-anchor="end">3</text>
+  <text x="48" y="364" font-family="Arial" font-size="12" text-anchor="end">8.922</text>
+  <text x="48" y="60" font-family="Arial" font-size="12" text-anchor="end">9.291</text>
+  <path d="M 56.00,91.34 L 272.00,58.51 L 488.00,256.46" fill="none" stroke="#2563eb" stroke-width="3"/><path d="M 56.00,56.00 L 272.00,231.22 L 488.00,364.00 L 704.00,350.96" fill="none" stroke="#dc2626" stroke-width="3"/>
+  <circle cx="590" cy="28" r="5" fill="#2563eb"/><text x="602" y="33" font-family="Arial" font-size="13">train</text>
+  <circle cx="660" cy="28" r="5" fill="#dc2626"/><text x="672" y="33" font-family="Arial" font-size="13">valid</text>
+</svg>
