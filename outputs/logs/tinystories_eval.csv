@@ -1,0 +1,2 @@
+﻿checkpoint,iteration,split,eval_iters,loss,perplexity
+tinystories_ckpt_5k.pt,4000,valid,50,2.0899,8.08

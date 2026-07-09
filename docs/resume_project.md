@@ -16,12 +16,12 @@
 - 搭建完整训练流水线，支持文本语料 BPE 训练、token ids 数据集构建、mini-batch 采样、cross-entropy loss、AdamW 优化器、warmup + cosine learning rate schedule、gradient clipping 和 checkpoint 保存。
 - 在 TinyStories 数据集上完成本地训练与验证实验，默认模型规模为 22.70M 参数，配置为 vocab size 10,000、context length 256、d_model 512、4 layers、16 heads、d_ff 1,344。
 - 补充工程化实验工具，包括训练 loss CSV 记录、SVG loss 曲线绘制、命令行文本生成脚本和交互式 prompt 生成脚本，便于复现实验与展示模型效果。
-- 通过 CS336 assignment 测试集验证核心实现正确性，测试结果为 47 passed、1 xpassed；smoke run 中 validation loss 从 9.2907 下降到 8.9374。
+- 通过 CS336 assignment 测试集验证核心实现正确性，测试结果为 47 passed、1 xpassed；基于 TinyStories checkpoint 评估得到 validation loss 2.0899，perplexity 8.08。
 
 ## 更短的简历版
 
 - 从零实现 22.70M 参数 GPT 风格语言模型训练系统，包含 BPE tokenizer、RoPE causal self-attention、RMSNorm、SwiGLU、AdamW、学习率调度、checkpoint 和自回归文本生成。
-- 搭建 TinyStories 训练与评估流水线，支持 tokenization、mini-batch 采样、validation loss 评估、CSV 日志记录和 SVG loss 曲线可视化，测试结果为 47 passed、1 xpassed。
+- 搭建 TinyStories 训练与评估流水线，支持 tokenization、mini-batch 采样、validation loss 评估、CSV 日志记录和 SVG loss 曲线可视化；TinyStories checkpoint validation loss 为 2.0899，测试结果为 47 passed、1 xpassed。
 
 ## 项目数据
 
@@ -37,7 +37,9 @@ FFN 维度                1,344
 优化器                  AdamW
 学习率策略              warmup + cosine decay
 测试结果                47 passed, 1 xpassed
-smoke run valid loss    9.2907 -> 8.9374
+checkpoint valid loss   2.0899
+checkpoint perplexity   8.08
+smoke run valid loss    9.2907 -> 8.9374（仅用于验证训练 loop）
 ```
 
 ## 面试展开说法
