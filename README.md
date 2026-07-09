@@ -1,53 +1,39 @@
 # MiniGPT from Scratch
 
-A compact GPT-style language-modeling system implemented from scratch in PyTorch for CS336 Assignment 1. The project includes a byte-pair encoding tokenizer, Transformer language model, training loop, checkpointing, validation, and prompt-based generation.
+中文 | [English](#english-version)
 
-## What Is Implemented
+## 项目简介
 
-- Byte-pair encoding tokenizer training and encode/decode utilities.
-- GPT-style Transformer LM with token embeddings, RoPE causal self-attention, RMSNorm, SwiGLU MLP blocks, and an output projection head.
-- Cross-entropy language-modeling loss, AdamW, cosine learning-rate decay with warmup, and gradient clipping.
-- Memory-mapped token-id datasets with random mini-batch sampling.
-- Checkpoint save/load, validation loss evaluation, CSV training logs, SVG loss plotting, and autoregressive text generation.
+这是一个基于 Stanford CS336 Assignment 1 整理出来的 GPT 风格语言模型项目。我目前完成的是 assignment 1 的核心内容，因此这个公开仓库定位为一个“小型 GPT from scratch”作品集：从 BPE tokenizer 到 Transformer 语言模型、训练循环、checkpoint、验证日志和文本生成，尽量把大模型训练的最小闭环做清楚。
 
-## Repository Layout
+## 实现内容
 
-```text
-cs336_basics/          core tokenizer, model, optimizer, loss, data, train, generate code
-scripts/               runnable experiment and demo entrypoints
-tests/                 CS336 unit tests and adapters
-outputs/               local experiment outputs; large artifacts are git-ignored
-data/                  local raw datasets; git-ignored
-```
+- BPE tokenizer 训练、encode/decode 与数据预处理流程。
+- GPT 风格 Transformer LM：token embedding、RoPE causal self-attention、RMSNorm、SwiGLU MLP、输出投影层。
+- Cross-entropy 语言建模损失、AdamW、warmup + cosine decay 学习率调度、gradient clipping。
+- 基于 memory-mapped token id 的随机 mini-batch 采样。
+- Checkpoint 保存/加载、validation loss 评估、CSV 训练日志、loss 曲线绘制和自回归文本生成。
 
-## Setup
-
-```bash
-cd /home/sentoayaka/cs336/assignment1-basics
-.venv/bin/python -m pytest -q
-```
-
-The original course template recommends `uv run pytest`; this checkout also works with the local `.venv`.
-
-## Data Pipeline
-
-Download TinyStories/OpenWebText into `data/`, train BPE tokenizers with `scripts/run_bpe_experiment.py`, and tokenize data with `scripts/run_tokenizer_experiments.py`. In this local setup, the TinyStories tokenizer and token-id arrays are expected at:
+## 仓库结构
 
 ```text
-outputs/tinystories_bpe_vocab.pkl
-outputs/tinystories_bpe_merges.pkl
-outputs/tinystories_train_ids.npy
-outputs/tinystories_valid_ids.npy
+cs336_basics/          tokenizer、model、optimizer、loss、data、train、generate 等核心代码
+scripts/               可运行的实验脚本和 demo 入口
+tests/                 CS336 单元测试与适配代码
+outputs/               本地实验输出；大文件已通过 .gitignore 排除
+data/                  本地原始数据；不纳入 Git
 ```
 
-Large datasets, tokenizer pickle files, tokenized arrays, and checkpoints are intentionally ignored by git.
-
-## Train TinyStories
-
-A quick smoke run:
+## 运行方式
 
 ```bash
-.venv/bin/python scripts/run_tinystories_train.py \
+python -m pytest -q
+```
+
+训练 TinyStories 的 smoke run：
+
+```bash
+python scripts/run_tinystories_train.py \
   --checkpoint_path outputs/tinystories_smoke_ckpt.pt \
   --log_path outputs/logs/tinystories_smoke.csv \
   --num_steps 200 \
@@ -57,47 +43,16 @@ A quick smoke run:
   --save_every 100
 ```
 
-A longer experiment:
+生成文本：
 
 ```bash
-.venv/bin/python scripts/run_tinystories_train.py \
-  --checkpoint_path outputs/tinystories_experiment_ckpt.pt \
-  --log_path outputs/logs/tinystories_experiment.csv \
-  --num_steps 5000 \
-  --warmup_iters 500 \
-  --cosine_cycle_iters 5000 \
-  --eval_every 500 \
-  --eval_iters 20 \
-  --save_every 1000
-```
-
-## Plot Training Curve
-
-```bash
-.venv/bin/python scripts/plot_training_curve.py \
-  --log_path outputs/logs/tinystories_experiment.csv \
-  --output_path outputs/figures/tinystories_loss.svg
-```
-
-## Generate Text
-
-Single prompt:
-
-```bash
-.venv/bin/python scripts/run_generate.py \
+python scripts/run_generate.py \
   --checkpoint_path outputs/tinystories_ckpt.pt \
   --prompt "Once upon a time" \
   --max_new_tokens 120
 ```
 
-Interactive prompt loop:
-
-```bash
-.venv/bin/python scripts/generate_interactive.py \
-  --checkpoint_path outputs/tinystories_ckpt.pt
-```
-
-## Default TinyStories Model
+## 默认 TinyStories 配置
 
 ```text
 vocab_size      10,000
@@ -111,19 +66,49 @@ optimizer       AdamW
 lr schedule     warmup + cosine decay
 ```
 
-## Current Local Results
+## 本地结果
 
-- Unit tests: `47 passed, 1 xpassed`.
-- Smoke training run: 3 steps on TinyStories token ids, `batch_size=2`, used to verify the training loop and CSV logging.
-- Checkpoint evaluation: `outputs/tinystories_ckpt_5k.pt` at iteration 4000 reaches validation loss `2.0899` over 50 eval batches, with perplexity `8.08`.
-- CSV logs: `outputs/logs/tinystories_report_train.csv`, `outputs/logs/tinystories_training_table.md`, and `outputs/logs/tinystories_eval.csv`.
-- Loss curve: `outputs/figures/tinystories_report_loss.svg`. Full Chinese project report: `docs/project_report.md`.
-- Example generation with an existing TinyStories checkpoint:
+- 单元测试：`47 passed, 1 xpassed`。
+- TinyStories checkpoint 评估：iteration 4000 的 validation loss 为 `2.0899`，perplexity 为 `8.08`。
+- 本地保存了训练日志、评估 CSV、loss 曲线和中文项目报告；大模型 checkpoint、tokenizer pickle、tokenized arrays 等大文件未上传。
+- 示例生成：
 
 ```text
 Once upon a time, there was a little girl named Lily. She loved to help her mom in the park...
 ```
 
+## 为什么放在 GitHub 主页
+
+这个项目展示的是我对大模型训练最小闭环的理解：tokenizer、Transformer 结构、优化器、学习率调度、数据采样、训练日志、验证和生成。它不是调用现成模型 API 的 demo，而是从底层模块开始实现一个可训练的小型语言模型。
+
+## English Version
+
+MiniGPT from Scratch is a compact GPT-style language-modeling project based on Stanford CS336 Assignment 1. Since my current CS336 implementation covers Assignment 1, this public repository is positioned as a small but complete "GPT from scratch" portfolio project: BPE tokenization, Transformer language modeling, training, checkpointing, validation, logging, and autoregressive generation.
+
+## What Is Implemented
+
+- BPE tokenizer training, encoding/decoding, and preprocessing utilities.
+- GPT-style Transformer LM with token embeddings, RoPE causal self-attention, RMSNorm, SwiGLU MLP blocks, and an output projection head.
+- Cross-entropy language-modeling loss, AdamW, warmup + cosine learning-rate decay, and gradient clipping.
+- Memory-mapped token-id datasets with random mini-batch sampling.
+- Checkpoint save/load, validation loss evaluation, CSV logs, loss plotting, and text generation.
+
+## Layout
+
+```text
+cs336_basics/          core tokenizer, model, optimizer, loss, data, train, generate code
+scripts/               runnable experiment and demo entrypoints
+tests/                 CS336 unit tests and adapters
+outputs/               local experiment outputs; large artifacts are git-ignored
+data/                  local raw datasets; git-ignored
+```
+
+## Local Results
+
+- Unit tests: `47 passed, 1 xpassed`.
+- TinyStories checkpoint evaluation: validation loss `2.0899` at iteration 4000, perplexity `8.08`.
+- Training logs, evaluation CSV files, loss curves, and a Chinese project report are kept locally; large checkpoints and tokenized arrays are intentionally excluded from Git.
+
 ## Portfolio Summary
 
-Implemented a GPT-style Transformer language model from scratch in PyTorch, including BPE tokenization, RoPE causal self-attention, RMSNorm, SwiGLU feed-forward layers, AdamW optimization, cosine learning-rate scheduling, checkpointing, and autoregressive text generation. Built a reproducible TinyStories training pipeline with validation loss tracking and prompt-based qualitative evaluation.
+This project demonstrates my understanding of the minimal training loop for language models: tokenization, Transformer architecture, optimization, scheduling, data sampling, logging, validation, and generation. It is a from-scratch learning project rather than a wrapper around an existing model API.
