@@ -116,8 +116,8 @@ lr schedule     warmup + cosine decay
 - Unit tests: `47 passed, 1 xpassed`.
 - Smoke training run: 3 steps on TinyStories token ids, `batch_size=2`, used to verify the training loop and CSV logging.
 - Checkpoint evaluation: `outputs/tinystories_ckpt_5k.pt` at iteration 4000 reaches validation loss `2.0899` over 50 eval batches, with perplexity `8.08`.
-- CSV logs: `outputs/logs/tinystories_smoke.csv` and `outputs/logs/tinystories_eval.csv`.
-- Loss curve: `outputs/figures/tinystories_smoke_loss.svg`.
+- CSV logs: `outputs/logs/tinystories_report_train.csv`, `outputs/logs/tinystories_training_table.md`, and `outputs/logs/tinystories_eval.csv`.
+- Loss curve: `outputs/figures/tinystories_report_loss.svg`. Full Chinese project report: `docs/project_report.md`.
 - Example generation with an existing TinyStories checkpoint:
 
 ```text
