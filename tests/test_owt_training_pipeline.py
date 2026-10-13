@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 from scripts.run_owt_training_pipeline import (
+    build_tokenize_command,
     build_training_command,
     token_count,
     validate_bpe_artifacts,
@@ -62,6 +63,19 @@ def test_build_training_command_uses_a1_owt_four_gpu_defaults():
     assert options["--num_steps"] == "20000"
     assert options["--eval_every"] == "1000"
     assert options["--save_every"] == "5000"
+
+
+def test_build_tokenize_command_uses_sixteen_workers():
+    command = build_tokenize_command(
+        python="python",
+        tokenizer_script="scripts/tokenize_corpus.py",
+        source="data/owt_train.txt",
+        vocab="outputs/owt_bpe_32k.vocab.pkl",
+        merges="outputs/owt_bpe_32k.merges.pkl",
+        destination="outputs/owt_train_ids.npy",
+    )
+
+    assert command[-2:] == ["--workers", "16"]
 
 
 def test_token_count_accepts_uint16_vector_with_training_context(tmp_path):

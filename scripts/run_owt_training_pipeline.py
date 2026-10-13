@@ -17,6 +17,7 @@ PER_RANK_BATCH_SIZE = 16
 NUM_STEPS = 20_000
 EVAL_EVERY = 1_000
 SAVE_EVERY = 5_000
+TOKENIZER_WORKERS = 16
 
 
 def validate_bpe_artifacts(
@@ -110,6 +111,27 @@ def build_training_command(
     ]
 
 
+def build_tokenize_command(
+    python, tokenizer_script, source, vocab, merges, destination
+):
+    return [
+        python,
+        str(tokenizer_script),
+        "--input",
+        str(source),
+        "--vocab",
+        str(vocab),
+        "--merges",
+        str(merges),
+        "--output",
+        str(destination),
+        "--special-token",
+        "<|endoftext|>",
+        "--workers",
+        str(TOKENIZER_WORKERS),
+    ]
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Tokenize OWT with the existing 32k BPE and run A1 training."
@@ -193,20 +215,14 @@ def main():
             if destination.exists():
                 token_count(destination)
                 continue
-            command = [
+            command = build_tokenize_command(
                 sys.executable,
-                str(tokenizer_script),
-                "--input",
-                str(source),
-                "--vocab",
-                str(vocab_path),
-                "--merges",
-                str(merges_path),
-                "--output",
-                str(destination),
-                "--special-token",
-                "<|endoftext|>",
-            ]
+                tokenizer_script,
+                source,
+                vocab_path,
+                merges_path,
+                destination,
+            )
             result = run_logged(
                 command,
                 logs_dir / f"owt_{split}_tokenize.log",

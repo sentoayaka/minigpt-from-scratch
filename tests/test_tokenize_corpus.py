@@ -47,3 +47,31 @@ def test_tokenize_file_uses_vocab_and_preserves_special_tokens(tmp_path):
     ids = np.load(output_path)
     assert count == 6
     assert ids.tolist() == [104, 105, 256, 111, 107, 10]
+
+
+def test_parallel_tokenize_file_matches_single_worker_across_chunks(tmp_path):
+    vocab_path = tmp_path / "vocab.pkl"
+    merges_path = tmp_path / "merges.pkl"
+    input_path = tmp_path / "text.txt"
+    single_output = tmp_path / "single.npy"
+    parallel_output = tmp_path / "parallel.npy"
+    vocab = {i: bytes([i]) for i in range(256)}
+    vocab[256] = b"<|endoftext|>"
+    with vocab_path.open("wb") as file:
+        pickle.dump(vocab, file)
+    with merges_path.open("wb") as file:
+        pickle.dump([], file)
+    input_path.write_text("hello\nworld\n<|endoftext|>\n", encoding="utf-8")
+
+    tokenize_file(input_path, vocab_path, merges_path, single_output, ["<|endoftext|>"])
+    tokenize_file(
+        input_path,
+        vocab_path,
+        merges_path,
+        parallel_output,
+        ["<|endoftext|>"],
+        workers=2,
+        chunk_chars=4,
+    )
+
+    assert np.array_equal(np.load(single_output), np.load(parallel_output))
