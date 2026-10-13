@@ -9,8 +9,8 @@ def save_checkpoint(model, optimizer, iteration, out):
 
     torch.save(checkpoint, out)
 
-def load_checkpoint(src, model, optimizer):
-    checkpoint = torch.load(src)
+def load_checkpoint(src, model, optimizer, map_location=None):
+    checkpoint = torch.load(src, map_location=map_location)
     model.load_state_dict(checkpoint["model"])
     optimizer.load_state_dict(checkpoint["optimizer"])
     iteration = checkpoint["iteration"]

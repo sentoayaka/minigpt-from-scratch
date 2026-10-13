@@ -54,9 +54,9 @@ def token_count(path):
 
 
 def build_training_command(
-    python, train_ids, valid_ids, checkpoint, metrics, nproc_per_node=4
+    python, train_ids, valid_ids, checkpoint, metrics, nproc_per_node=4, resume_from=None
 ):
-    return [
+    command = [
         python,
         "-m",
         "torch.distributed.run",
@@ -109,6 +109,9 @@ def build_training_command(
         "--seed",
         "0",
     ]
+    if resume_from is not None:
+        command.extend(["--resume_from", str(resume_from)])
+    return command
 
 
 def build_tokenize_command(
@@ -138,6 +141,7 @@ def main():
     )
     parser.add_argument("--project", type=Path, default=Path.cwd())
     parser.add_argument("--physical-gpus", default="4,5,6,7")
+    parser.add_argument("--resume-from", type=Path, default=None)
     args = parser.parse_args()
 
     project = args.project.resolve()
@@ -152,7 +156,17 @@ def main():
     train_ids = output_dir / "owt_train_ids.npy"
     valid_ids = output_dir / "owt_valid_ids.npy"
     checkpoint_path = output_dir / "checkpoints" / "owt_32k_latest.pt"
-    metrics_path = logs_dir / "owt_32k_train.csv"
+    resume_from = args.resume_from
+    if resume_from is not None:
+        if not resume_from.is_absolute():
+            resume_from = project / resume_from
+        resume_from = resume_from.resolve()
+    metrics_path = logs_dir / (
+        "owt_32k_resume.csv" if resume_from else "owt_32k_train.csv"
+    )
+    training_log_path = logs_dir / (
+        "owt_4gpu_train_resume.log" if resume_from else "owt_4gpu_train.log"
+    )
 
     output_dir.mkdir(parents=True, exist_ok=True)
     logs_dir.mkdir(parents=True, exist_ok=True)
@@ -199,6 +213,8 @@ def main():
                 )
 
         vocab_count, merge_count = validate_bpe_artifacts(vocab_path, merges_path)
+        if resume_from is not None and not resume_from.is_file():
+            raise FileNotFoundError(f"resume checkpoint does not exist: {resume_from}")
         set_status(
             "bpe_ready",
             vocab=str(vocab_path),
@@ -248,15 +264,16 @@ def main():
             checkpoint_path,
             metrics_path,
             nproc_per_node=len(gpu_ids),
+            resume_from=resume_from,
         )
         result = run_logged(
             train_command,
-            logs_dir / "owt_4gpu_train.log",
+            training_log_path,
             "training_owt",
         )
         if result != 0:
             raise RuntimeError(
-                "OWT training failed; see outputs/logs/owt_4gpu_train.log"
+                f"OWT training failed; see {training_log_path}"
             )
 
         set_status(
@@ -271,6 +288,7 @@ def main():
             per_rank_batch_size=PER_RANK_BATCH_SIZE,
             global_batch_size=PER_RANK_BATCH_SIZE * len(gpu_ids),
             context_length=CONTEXT_LENGTH,
+            **({"resumed_from": str(resume_from)} if resume_from else {}),
             tokens_processed=(
                 NUM_STEPS * PER_RANK_BATCH_SIZE * len(gpu_ids) * CONTEXT_LENGTH
             ),

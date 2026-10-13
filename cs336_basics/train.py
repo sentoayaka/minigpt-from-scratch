@@ -8,7 +8,7 @@ import torch
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel
 
-from cs336_basics.checkpoint import save_checkpoint
+from cs336_basics.checkpoint import load_checkpoint, save_checkpoint
 from cs336_basics.data import get_batch
 from cs336_basics.loss import cross_entropy
 from cs336_basics.model import TransformerLanguageModel
@@ -89,6 +89,17 @@ def _save_checkpoint_if_primary(model, optimizer, iteration, checkpoint_path, ra
         dist.barrier()
 
 
+def _restore_training_state(model, optimizer, checkpoint_path, map_location=None):
+    checkpoint_model = model.module if isinstance(model, DistributedDataParallel) else model
+    iteration = load_checkpoint(
+        checkpoint_path,
+        checkpoint_model,
+        optimizer,
+        map_location=map_location,
+    )
+    return iteration + 1
+
+
 def build_model(args):
     return TransformerLanguageModel(
         vocab_size=args.vocab_size,
@@ -149,10 +160,24 @@ def _train(args, distributed, rank, world_size):
         weight_decay=args.weight_decay,
     )
 
+    start_step = 0
+    if args.resume_from:
+        start_step = _restore_training_state(
+            model,
+            optimizer,
+            args.resume_from,
+            map_location=args.device,
+        )
+        if start_step >= args.num_steps:
+            raise ValueError(
+                f"checkpoint resumes at step {start_step}, which is not before "
+                f"the configured final step {args.num_steps}"
+            )
+
     model.train()
     train_batcher = _make_batcher(train_data, args)
 
-    for step in range(args.num_steps):
+    for step in range(start_step, args.num_steps):
         lr = get_lr_cosine_schedule_with_warmup(
             step,
             args.max_lr,
@@ -228,6 +253,7 @@ def main():
     parser.add_argument("--valid_data", type=str, default=None)
     parser.add_argument("--checkpoint_path", type=str, default=None)
     parser.add_argument("--log_path", type=str, default=None)
+    parser.add_argument("--resume_from", type=str, default=None)
 
     parser.add_argument("--device", type=str, default="cuda:0" if torch.cuda.is_available() else "cpu")
 

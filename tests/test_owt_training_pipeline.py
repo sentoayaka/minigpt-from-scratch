@@ -65,6 +65,22 @@ def test_build_training_command_uses_a1_owt_four_gpu_defaults():
     assert options["--save_every"] == "5000"
 
 
+def test_build_training_command_can_resume_from_a_checkpoint():
+    command = build_training_command(
+        python="python",
+        train_ids="outputs/owt_train_ids.npy",
+        valid_ids="outputs/owt_valid_ids.npy",
+        checkpoint="outputs/checkpoints/owt_32k_latest.pt",
+        metrics="outputs/logs/owt_32k_resume.csv",
+        nproc_per_node=4,
+        resume_from="outputs/checkpoints/owt_32k_latest.pt",
+    )
+
+    assert command[command.index("--resume_from") + 1] == (
+        "outputs/checkpoints/owt_32k_latest.pt"
+    )
+
+
 def test_build_tokenize_command_uses_sixteen_workers():
     command = build_tokenize_command(
         python="python",
