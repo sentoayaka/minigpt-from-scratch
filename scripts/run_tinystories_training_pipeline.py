@@ -3,8 +3,11 @@ from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
+import time
+import urllib.request
 
 
 DATA_URLS = {
@@ -38,36 +41,85 @@ def run_logged(command, cwd, env, log_path, status_path, phase):
         return process.wait()
 
 
-def ensure_download(url, destination, project, env, logs_dir, status_path, split):
+def ensure_download(url, destination, status_path, split):
     if destination.is_file() and destination.stat().st_size > 0:
         return
     partial = destination.with_name(destination.name + ".part")
-    curl = [
-        "curl",
-        "--fail",
-        "--location",
-        "--retry",
-        "10",
-        "--retry-delay",
-        "2",
-        "--connect-timeout",
-        "30",
-        "--continue-at",
-        "-",
-        "--output",
-        str(partial),
-        url,
-    ]
-    result = run_logged(
-        curl,
-        project,
-        env,
-        logs_dir / f"tinystories_{split}_download.log",
-        status_path,
-        f"downloading_{split}",
-    )
-    if result != 0 or not partial.is_file() or partial.stat().st_size == 0:
-        raise RuntimeError(f"TinyStories {split} download failed; see outputs/logs/tinystories_{split}_download.log")
+    for attempt in range(10):
+        offset = partial.stat().st_size if partial.exists() else 0
+        write_status(
+            status_path,
+            f"downloading_{split}",
+            downloaded_bytes=offset,
+            attempt=attempt + 1,
+        )
+        headers = {"Range": f"bytes={offset}-"} if offset else {}
+        request = urllib.request.Request(url, headers=headers)
+        try:
+            with urllib.request.urlopen(request, timeout=60) as response:
+                resumed = offset > 0 and response.status == 206
+                mode = "ab" if resumed else "wb"
+                content_range = response.headers.get("Content-Range", "")
+                if resumed and "/" in content_range:
+                    expected_size = int(content_range.rsplit("/", 1)[1])
+                else:
+                    content_length = response.headers.get("Content-Length")
+                    expected_size = int(content_length) if content_length else None
+                bytes_since_status = 0
+                downloaded_bytes = offset if resumed else 0
+                with partial.open(mode) as output:
+                    while chunk := response.read(8 * 1024 * 1024):
+                        output.write(chunk)
+                        bytes_since_status += len(chunk)
+                        downloaded_bytes += len(chunk)
+                        if bytes_since_status >= 256 * 1024 * 1024:
+                            write_status(
+                                status_path,
+                                f"downloading_{split}",
+                                downloaded_bytes=downloaded_bytes,
+                                expected_bytes=expected_size,
+                                attempt=attempt + 1,
+                            )
+                            bytes_since_status = 0
+
+            downloaded = partial.stat().st_size
+            if expected_size is not None and downloaded != expected_size:
+                if downloaded < expected_size:
+                    write_status(
+                        status_path,
+                        f"downloading_{split}",
+                        downloaded_bytes=downloaded,
+                        expected_bytes=expected_size,
+                        attempt=attempt + 1,
+                    )
+                    time.sleep(2)
+                    continue
+                raise RuntimeError(
+                    f"downloaded {downloaded} bytes, expected {expected_size}"
+                )
+            if downloaded == 0:
+                raise RuntimeError("download returned an empty file")
+            print(f"downloaded TinyStories {split}: {downloaded:,} bytes", flush=True)
+            write_status(
+                status_path,
+                f"downloaded_{split}",
+                downloaded_bytes=downloaded,
+                expected_bytes=expected_size,
+            )
+            break
+        except Exception as error:
+            if attempt == 9:
+                raise RuntimeError(
+                    f"TinyStories {split} download failed after 10 attempts"
+                ) from error
+            print(
+                f"TinyStories {split} download attempt {attempt + 1} failed: {error}; retrying",
+                flush=True,
+            )
+            time.sleep(2)
+
+    if not partial.is_file() or partial.stat().st_size == 0:
+        raise RuntimeError(f"TinyStories {split} download failed")
     os.replace(partial, destination)
 
 
@@ -106,8 +158,8 @@ def main():
         OPENBLAS_NUM_THREADS="1",
     )
 
-    ensure_download(DATA_URLS["train"], train_text, project, env, logs_dir, status_path, "train")
-    ensure_download(DATA_URLS["valid"], valid_text, project, env, logs_dir, status_path, "valid")
+    ensure_download(DATA_URLS["train"], train_text, status_path, "train")
+    ensure_download(DATA_URLS["valid"], valid_text, status_path, "valid")
 
     if not (vocab_path.is_file() and merges_path.is_file()):
         bpe_command = [
