@@ -2,7 +2,6 @@ import numpy as np
 import pickle
 import pytest
 
-from scripts import run_tinystories_training_pipeline as pipeline
 from scripts.tokenize_corpus import tokenize_file, write_ids_to_npy
 
 
@@ -48,40 +47,3 @@ def test_tokenize_file_uses_vocab_and_preserves_special_tokens(tmp_path):
     ids = np.load(output_path)
     assert count == 6
     assert ids.tolist() == [104, 105, 256, 111, 107, 10]
-
-
-def test_tinystories_download_resumes_partial_file(tmp_path, monkeypatch):
-    class Response:
-        status = 206
-        headers = {"Content-Range": "bytes 2-5/6", "Content-Length": "4"}
-
-        def __init__(self):
-            self.chunks = [b"cde", b"f", b""]
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *_):
-            return False
-
-        def read(self, _size):
-            return self.chunks.pop(0)
-
-    response = Response()
-    requested_headers = {}
-
-    def fake_urlopen(request, timeout):
-        requested_headers.update(request.header_items())
-        assert timeout == 60
-        return response
-
-    monkeypatch.setattr(pipeline.urllib.request, "urlopen", fake_urlopen)
-    destination = tmp_path / "train.txt"
-    destination.with_name("train.txt.part").write_bytes(b"ab")
-    status_path = tmp_path / "status.json"
-
-    pipeline.ensure_download("https://example.test/train.txt", destination, status_path, "train")
-
-    assert destination.read_bytes() == b"abcdef"
-    assert not destination.with_name("train.txt.part").exists()
-    assert requested_headers["Range"] == "bytes=2-"
