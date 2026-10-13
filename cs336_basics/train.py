@@ -136,12 +136,12 @@ def main():
     parser.add_argument("--rope_theta", type=float, default=10000.0)
 
     parser.add_argument("--batch_size", type=int, default=16)
-    parser.add_argument("--num_steps", type=int, default=1000)
+    parser.add_argument("--num_steps", type=int, default=20000)
 
     parser.add_argument("--max_lr", type=float, default=3e-4)
     parser.add_argument("--min_lr", type=float, default=3e-5)
     parser.add_argument("--warmup_iters", type=int, default=100)
-    parser.add_argument("--cosine_cycle_iters", type=int, default=1000)
+    parser.add_argument("--cosine_cycle_iters", type=int, default=20000)
 
     parser.add_argument("--beta1", type=float, default=0.9)
     parser.add_argument("--beta2", type=float, default=0.95)
@@ -151,9 +151,9 @@ def main():
     parser.add_argument("--max_grad_norm", type=float, default=1.0)
 
     parser.add_argument("--log_every", type=int, default=10)
-    parser.add_argument("--eval_every", type=int, default=100)
+    parser.add_argument("--eval_every", type=int, default=1000)
     parser.add_argument("--eval_iters", type=int, default=10)
-    parser.add_argument("--save_every", type=int, default=500)
+    parser.add_argument("--save_every", type=int, default=5000)
 
     args = parser.parse_args()
     train(args)

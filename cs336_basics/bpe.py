@@ -1,9 +1,11 @@
-import regex as re
-from collections import defaultdict
-import time 
+import heapq
 import os
-from typing import BinaryIO
+import time
+from collections import Counter, defaultdict
 from multiprocessing import Pool, cpu_count
+from typing import BinaryIO
+
+import regex as re
 
 PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
 
@@ -51,40 +53,84 @@ def build_pair_indexes(word_id_to_tokens, word_id_to_count):
             pair_to_word_ids[pair].add(word_id)
     return pair_counts, pair_to_word_ids
 
-def remove_word_pairs(word_id, tokens, count, pair_counts, pair_to_word_ids):
-    for pair in iter_pairs(tokens):
-        pair_counts[pair] -= count
-        if pair_counts[pair] <= 0:
-            del pair_counts[pair]
-        pair_to_word_ids[pair].discard(word_id)
-        if not pair_to_word_ids[pair]:
-            del pair_to_word_ids[pair]
+class _ReversePair:
+    __slots__ = ("pair",)
 
-def add_word_pairs(word_id, tokens, count, pair_counts, pair_to_word_ids):
-    for pair in iter_pairs(tokens):
-        pair_counts[pair] = pair_counts.get(pair, 0) + count
-        pair_to_word_ids[pair].add(word_id)
+    def __init__(self, pair):
+        self.pair = pair
+
+    def __lt__(self, other):
+        return self.pair > other.pair
+
+    def __eq__(self, other):
+        return isinstance(other, _ReversePair) and self.pair == other.pair
+
+
+class _PairMaxHeap:
+    """Lazy max-heap matching max((count, pair)) ordering exactly."""
+
+    def __init__(self, pair_counts):
+        self.heap = [(-count, _ReversePair(pair), pair) for pair, count in pair_counts.items()]
+        heapq.heapify(self.heap)
+
+    def update(self, pair, count):
+        if count > 0:
+            heapq.heappush(self.heap, (-count, _ReversePair(pair), pair))
+
+    def pop_max(self, pair_counts):
+        while self.heap:
+            negative_count, _, pair = heapq.heappop(self.heap)
+            if pair_counts.get(pair) == -negative_count:
+                return pair
+        raise KeyError("no remaining pair in priority heap")
+
+    def compact_if_needed(self, pair_counts):
+        if len(self.heap) > max(64, 2 * len(pair_counts)):
+            self.heap = [(-count, _ReversePair(pair), pair) for pair, count in pair_counts.items()]
+            heapq.heapify(self.heap)
+
 
 def apply_merge_incremental(best_pair, word_id_to_tokens, word_id_to_count, pair_counts, pair_to_word_ids):
-    if best_pair not in pair_to_word_ids:
-        return
+    """Merge one pair and return the pair counts changed by local deltas."""
+    affected_word_ids = tuple(pair_to_word_ids.get(best_pair, ()))
+    pair_deltas = defaultdict(int)
 
-    affected_word_ids = list(pair_to_word_ids[best_pair])
     for word_id in affected_word_ids:
         tokens = word_id_to_tokens[word_id]
         count = word_id_to_count[word_id]
-
-        if best_pair not in set(iter_pairs(tokens)):
-            continue
-
-        remove_word_pairs(word_id, tokens, count, pair_counts, pair_to_word_ids)
-
         new_tokens = merge_one_token_sequence(tokens, best_pair)
-        new_tokens = tuple(new_tokens)
+        old_pairs = Counter(iter_pairs(tokens))
+        new_pairs = Counter(iter_pairs(new_tokens))
+
+        for pair, old_occurrences in old_pairs.items():
+            delta = (new_pairs.get(pair, 0) - old_occurrences) * count
+            if delta:
+                pair_deltas[pair] += delta
+        for pair, new_occurrences in new_pairs.items():
+            if pair not in old_pairs:
+                pair_deltas[pair] += new_occurrences * count
+
+        for pair in old_pairs.keys() - new_pairs.keys():
+            word_ids = pair_to_word_ids[pair]
+            word_ids.remove(word_id)
+            if not word_ids:
+                del pair_to_word_ids[pair]
+        for pair in new_pairs.keys() - old_pairs.keys():
+            pair_to_word_ids[pair].add(word_id)
 
         word_id_to_tokens[word_id] = new_tokens
 
-        add_word_pairs(word_id, new_tokens, count, pair_counts, pair_to_word_ids)
+    changed_counts = {}
+    for pair, delta in pair_deltas.items():
+        new_count = pair_counts.get(pair, 0) + delta
+        if new_count <= 0:
+            pair_counts.pop(pair, None)
+            changed_counts[pair] = 0
+        else:
+            pair_counts[pair] = new_count
+            changed_counts[pair] = new_count
+
+    return changed_counts
 
 def split_on_special_tokens(text: str, special_tokens: list[str], keep_special_tokens = False):
     if not special_tokens:
@@ -189,6 +235,7 @@ def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str], profi
         print("  build_word_tokens_time:", build_word_tokens_time)
 
     pair_counts, pair_to_word_ids = build_pair_indexes(word_id_to_tokens, word_id_to_count)
+    pair_heap = _PairMaxHeap(pair_counts)
 
     vocab = {i: bytes([i]) for i in range(256)}
     next_id = 256
@@ -208,7 +255,7 @@ def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str], profi
             break
 
         start_time = time.perf_counter()
-        most_frequent_pair = max(pair_counts, key=lambda pair: (pair_counts[pair], pair))
+        most_frequent_pair = pair_heap.pop_max(pair_counts)
         get_pairs_time += time.perf_counter() - start_time
 
         
@@ -219,7 +266,12 @@ def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str], profi
         next_id += 1
         
         start_time = time.perf_counter()
-        apply_merge_incremental(most_frequent_pair, word_id_to_tokens, word_id_to_count, pair_counts, pair_to_word_ids)
+        changed_counts = apply_merge_incremental(
+            most_frequent_pair, word_id_to_tokens, word_id_to_count, pair_counts, pair_to_word_ids
+        )
+        for pair, count in changed_counts.items():
+            pair_heap.update(pair, count)
+        pair_heap.compact_if_needed(pair_counts)
         merge_time += time.perf_counter() - start_time
 
     
