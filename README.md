@@ -70,7 +70,8 @@ lr schedule     warmup + cosine decay
 
 - 单元测试：`47 passed, 1 xpassed`。
 - TinyStories checkpoint 评估：iteration 4000 的 validation loss 为 `2.0899`，perplexity 为 `8.08`。
-- 本地保存了训练日志、评估 CSV、loss 曲线和中文项目报告；大模型 checkpoint、tokenizer pickle、tokenized arrays 等大文件未上传。
+- OWT 32k A1 训练：4 卡 DDP（GPU 4–7），20,000 步，最终 validation loss `4.2499`，最佳 `4.2172`（step 18,000）。完整参数、机器信息和耗时口径见[训练记录](docs/OWT训练与结果.md)；仓库保存了轻量 CSV 和 SVG。
+- 大模型 checkpoint、OWT 原始数据、tokenizer pickle 和 tokenized arrays 留在训练服务器，没有上传。
 - 示例生成：
 
 ```text
@@ -107,7 +108,8 @@ data/                  local raw datasets; git-ignored
 
 - Unit tests: `47 passed, 1 xpassed`.
 - TinyStories checkpoint evaluation: validation loss `2.0899` at iteration 4000, perplexity `8.08`.
-- Training logs, evaluation CSV files, loss curves, and a Chinese project report are kept locally; large checkpoints and tokenized arrays are intentionally excluded from Git.
+- The OWT 32k A1 run completed 20,000 steps on four GPUs (physical GPU 4–7); final validation loss was `4.2499`, with a best of `4.2172` at step 18,000. See the [training report](docs/OWT训练与结果.md), committed metrics CSV, and validation-loss SVG.
+- Large checkpoints, raw OWT data, tokenizer pickles, and tokenized arrays remain on the training server and are excluded from Git.
 
 ## Portfolio Summary
 

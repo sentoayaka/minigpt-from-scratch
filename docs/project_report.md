@@ -30,6 +30,10 @@
 | checkpoint valid loss | 2.0899 |
 | checkpoint perplexity | 8.08 |
 
+## OWT 32k 四卡训练
+
+在 OpenWebText 上完成了 Assignment 1 的 20,000 步训练，使用物理 GPU 4–7 进行四卡 DDP。模型配置为 vocab size 32,000、context length 256、`d_model=512`、4 层、16 个 heads、`d_ff=1344`，每卡 batch 16、全局 batch 64。最终 validation loss 为 4.2499，最佳验证 loss 为 4.2172（step 18,000）。详细硬件、参数、恢复过程与耗时口径见[OWT 训练记录](OWT训练与结果.md)；完整指标和曲线分别保存在 `outputs/logs/owt_32k_metrics.csv` 与 `outputs/figures/owt_32k_validation_loss.svg`。数据集、tokenized arrays 和 checkpoint 没有上传。
+
 ## 训练过程数据
 
 完整 CSV 位于 `outputs/logs/tinystories_report_train.csv`，下表保留 validation 点和若干 train-only 点：
