@@ -7,25 +7,41 @@ from cs336_basics.model import TransformerLanguageModel
 from cs336_basics.tokenizer import Tokenizer
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Generate text from a trained TinyStories checkpoint.")
-    parser.add_argument("--vocab_path", default="outputs/tinystories_bpe_vocab.pkl")
-    parser.add_argument("--merges_path", default="outputs/tinystories_bpe_merges.pkl")
-    parser.add_argument("--checkpoint_path", default="outputs/tinystories_ckpt.pt")
+def default_device():
+    if not torch.cuda.is_available():
+        return "cpu"
+    if torch.cuda.device_count() > 4:
+        return "cuda:4"
+    return "cuda"
+
+
+def build_parser():
+    parser = argparse.ArgumentParser(
+        description="Generate a continuation using the OWT 32k A1 checkpoint."
+    )
+    parser.add_argument("--vocab_path", default="outputs/owt_bpe_32k.vocab.pkl")
+    parser.add_argument("--merges_path", default="outputs/owt_bpe_32k.merges.pkl")
+    parser.add_argument(
+        "--checkpoint_path", default="outputs/checkpoints/owt_32k_latest.pt"
+    )
     parser.add_argument("--prompt", default="Once upon a time")
     parser.add_argument("--max_new_tokens", type=int, default=100)
     parser.add_argument("--temperature", type=float, default=0.8)
     parser.add_argument("--top_p", type=float, default=0.9)
-    parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    parser.add_argument("--device", default=default_device())
 
-    parser.add_argument("--vocab_size", type=int, default=10000)
+    parser.add_argument("--vocab_size", type=int, default=32_000)
     parser.add_argument("--context_length", type=int, default=256)
     parser.add_argument("--d_model", type=int, default=512)
     parser.add_argument("--num_layers", type=int, default=4)
     parser.add_argument("--num_heads", type=int, default=16)
     parser.add_argument("--d_ff", type=int, default=1344)
     parser.add_argument("--rope_theta", type=float, default=10000.0)
-    args = parser.parse_args()
+    return parser
+
+
+def main():
+    args = build_parser().parse_args()
 
     tokenizer = Tokenizer.from_files(
         vocab_path=args.vocab_path,
