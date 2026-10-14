@@ -1,3 +1,8 @@
+import os
+import subprocess
+import sys
+from pathlib import Path
+
 import torch
 
 from scripts.run_generate import build_parser, default_device
@@ -32,3 +37,22 @@ def test_default_device_falls_back_for_fewer_gpus_or_cpu(monkeypatch):
 
     monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
     assert default_device() == "cpu"
+
+
+def test_script_help_works_without_pythonpath_from_outside_project(tmp_path):
+    project_root = Path(__file__).resolve().parents[1]
+    script = project_root / "scripts" / "run_generate.py"
+    env = os.environ.copy()
+    env.pop("PYTHONPATH", None)
+
+    result = subprocess.run(
+        [sys.executable, str(script), "--help"],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "Generate a continuation using the OWT 32k A1 checkpoint." in result.stdout

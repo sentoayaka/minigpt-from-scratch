@@ -1,10 +1,20 @@
 import argparse
+import sys
+from pathlib import Path
 
 import torch
 
-from cs336_basics.generate import decode
-from cs336_basics.model import TransformerLanguageModel
-from cs336_basics.tokenizer import Tokenizer
+# Running this file directly puts ``scripts/`` on sys.path, but the assignment
+# package lives one level above it. Add that project root so the documented
+# ``python scripts/run_generate.py`` command works without installing the repo
+# or setting PYTHONPATH.
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from cs336_basics.generate import decode  # noqa: E402
+from cs336_basics.model import TransformerLanguageModel  # noqa: E402
+from cs336_basics.tokenizer import Tokenizer  # noqa: E402
 
 
 def default_device():
